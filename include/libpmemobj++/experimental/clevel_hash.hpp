@@ -50,6 +50,7 @@
 
 #define MAX_LEVEL 16
 
+
 // #define CLEVEL_DEBUG 1
 
 /**
@@ -72,6 +73,33 @@ namespace experimental
 
 using namespace pmem::obj;
 
+struct read_counter {
+	uint64_t _counter;
+
+	explicit read_counter(uint64_t _c) {
+		_counter = _c;
+	}
+
+	void inc_c() {
+		_counter++;
+	}
+};
+
+struct insert_counter {
+	uint64_t _counter;
+
+	explicit insert_counter(uint64_t _c) {
+		_counter = _c;
+	}
+
+	void inc_c() {
+		_counter++;
+	}
+};
+
+std::mutex _muc;
+
+static uint64_t research_c = 0;
 
 #if !LIBPMEMOBJ_CPP_USE_TBB_RW_MUTEX
 using internal::shared_mutex_scoped_lock;
@@ -109,7 +137,6 @@ public:
 
 	struct level_bucket;
 	struct level_meta;
-
 
 	using KV_entry_ptr_t = detail::compound_pool_ptr<value_type>;
 
@@ -551,8 +578,18 @@ clevel_hash<Key, T, Hash, KeyEqual, HashPower>::search(
 	hv_type hv = hasher{}(key);
 	partial_t partial = get_partial(hv);
 
+	read_counter rc(0);
+
 	while(true)
 	{
+		rc.inc_c();
+		if(rc._counter >= 2) {
+			std::cout << "Retry search" << std::endl;
+			{
+				std::unique_lock<std::mutex> lock(_muc);
+				research_c++;
+			}
+		}
 		level_meta_ptr_t m_copy(meta);
 		level_meta *m = static_cast<level_meta *>(m_copy(my_pool_uuid));
 
@@ -751,9 +788,19 @@ clevel_hash<Key, T, Hash, KeyEqual, HashPower>::find(
 {
 	hv_type hv = hasher{}(key);
 
+	read_counter rc(0);
+
 	while (true)
 	{
 RETRY_FIND:
+		rc.inc_c();
+		if(rc._counter >= 2) {
+			std::cout << "Retry search" << std::endl;
+			{
+				std::unique_lock<std::mutex> lock(_muc);
+				research_c++;
+			}
+		}
 		level_meta *m = static_cast<level_meta *>(m_copy(my_pool_uuid));
 		*e = nullptr;
 
@@ -1001,6 +1048,8 @@ clevel_hash<Key, T, Hash, KeyEqual, HashPower>::generic_insert(
 	uint64_t initial_capacity = 0;
 	bool check_duplicate = true;
 
+	read_counter rc(0);
+
 #ifdef CLEVEL_DEBUG
 	uint64_t retry_insert_cnt = 0;
 	thread_logs[thread_id] << "Thread-" << thread_id << " starts inserting "
@@ -1029,6 +1078,14 @@ RETRY_INSERT:
 				<< ", key = " << key << std::endl;
         }
 #endif
+		rc.inc_c();
+		if(rc._counter >= 2) {
+			std::cout << "Retry insert" << std::endl;
+			{
+				std::unique_lock<std::mutex> lock(_muc);
+				research_c++;
+			}
+		}
 		level_meta_ptr_t m_copy(meta);
 		pop.persist(&(meta.off), sizeof(uint64_t));
 
@@ -1233,8 +1290,18 @@ clevel_hash<Key, T, Hash, KeyEqual, HashPower>::generic_update(
 
 	difference_type expand_bucket_old;
 	bool succ_update = false;
+
+	read_counter rc(0);
 	while (true)
 	{
+		rc.inc_c();
+		if(rc._counter >= 2) {
+			std::cout << "Retry update" << std::endl;
+			{
+				std::unique_lock<std::mutex> lock(_muc);
+				research_c++;
+			}
+		}
 		level_meta_ptr_t m_copy(meta);
 		pop.persist(&(meta.off), sizeof(uint64_t));
 

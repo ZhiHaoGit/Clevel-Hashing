@@ -30,7 +30,7 @@
 #else
 
 // (2^12 + 2^11) * 8 = 49152
-#define HASH_POWER 12
+#define HASH_POWER 24
 #define READ_WRITE_NUM 16000000
 
 #endif
@@ -336,11 +336,11 @@ main(int argc, char *argv[])
 						THREADS[thread_id].upd_existing++;
 					}
 				}
-				else
-				{
-					printf("unknown clevel_op\n");
-					exit(1);
-				}
+//				else
+//				{
+//					printf("unknown clevel_op\n");
+//					exit(1);
+//				}
 #ifdef LATENCY_ENABLE
 				clock_gettime(CLOCK_MONOTONIC, &stop);
 				THREADS[thread_id].latency_queue[j] = stop.tv_sec * 1000000000.0 + stop.tv_nsec;
@@ -357,6 +357,8 @@ main(int argc, char *argv[])
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	size_t elapsed = static_cast<size_t>((end.tv_sec - start.tv_sec) * 1000000000 +
 		(end.tv_nsec - start.tv_nsec));
+
+	std::cout << "Retry search:" << pmem::obj::experimental::research_c << std::endl;
 
 	for (size_t t = 0; t < thread_num; ++t) {
 		inserted += THREADS[t].inserted;

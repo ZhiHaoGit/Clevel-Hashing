@@ -65,7 +65,7 @@ public:
 	using mapped_type = T;
 	using value_type = std::pair<const Key, T>;
 	using size_type = size_t;
-	using difference_type = ptrdiff_t;
+	using difference_type = ptrdiff_t; // long int
 	using pointer = value_type *;
 	using const_pointer = const value_type *;
 	using reference = value_type &;
@@ -694,7 +694,7 @@ public:
 
 	void
 	insert_empty_slot(pool_base &pop, size_type level_idx,
-		difference_type bucket_idx, size_type slot_idx, kv_ptr_t e)
+		difference_type bucket_idx, size_type slot_idx, kv_ptr_t e)  //created
 	{
 		bucket *b;
 		if (level_idx < 2)
